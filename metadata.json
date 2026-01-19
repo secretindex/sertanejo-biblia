@@ -1,0 +1,8 @@
+{
+  "name": "Bíblia do Sertanejo",
+  "description": "Uma experiência imersiva para ouvir e estudar a Bíblia com inteligência artificial, narrações personalizadas e aconselhamento espiritual.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
