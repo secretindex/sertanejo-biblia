@@ -5,8 +5,7 @@ import { ImportedAudio, Quiz, QuizQuestion, CordelSegment } from '../types';
 import { BIBLE_BOOKS } from '../constants';
 import { saveAudioFile, saveQuizDB, saveCordelSegmentsDB, deleteQuizDB } from '../services/db';
 import { generateQuizQuestions, extractMusicAndCordelFromAudio } from '../services/geminiService';
-// import { sliceAudio } from '../services/audioUtils';
-import { sendBibleBooks } from '../utils/sendBibleBooks';
+import { sliceAudio } from '../services/audioUtils';
 
 interface DeveloperViewProps {
   onBack: () => void;
@@ -306,13 +305,6 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
             <p className="text-[var(--text-muted)] text-xs leading-relaxed">
               Clique em <strong>"Cortar Histórias"</strong> ou <strong>"Cortar Músicas"</strong>. A IA identificará e separará tudo automaticamente para você.
             </p>
-          </div>
-
-          <div className="mt-4 p-5 bg-white rounded-2xl border border-[var(--border-light)] shadow-sm">
-            <button
-              onClick={sendBibleBooks}
-              className="w-full bg-[var(--secondary-bg)] text-[var(--text-light)] p-4 rounded-2xl font-bold flex items-center justify-center space-x-2 hover:bg-[#3A2923] transition-all active:scale-[0.99] disabled:opacity-50 shadow-lg"
-            >Enviar livros da Bíblia para Base de Dados</button>
           </div>
         </div>
 

@@ -45,6 +45,7 @@ export interface ChapterContent {
 }
 
 export interface ImportedAudio {
+  id: string;
   bookName: string;
   chapter: number;
   fileName: string;

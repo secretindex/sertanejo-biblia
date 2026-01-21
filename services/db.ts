@@ -1,13 +1,14 @@
-
 import { ImportedAudio, StorySegment, QuizSubmission, Quiz, CordelSegment, FavoriteItem, UserSettings } from '../types';
+
+import supabase from '@/utils/supabase';
 
 const DB_NAME = 'SertanejoBibleDB';
 const STORE_AUDIOS = 'audios';
 const STORE_STORIES = 'stories';
 const STORE_QUIZZES = 'quizzes';
 const STORE_SUBMISSIONS = 'submissions';
-const STORE_IMAGES = 'chapter_images'; 
-const STORE_CORDEL = 'cordel_segments'; 
+const STORE_IMAGES = 'chapter_images';
+const STORE_CORDEL = 'cordel_segments';
 const STORE_FAVORITES = 'favorites';
 const STORE_SETTINGS = 'user_settings'; // Nova store
 const DB_VERSION = 7; // Incrementado
@@ -82,14 +83,28 @@ export const saveAudioFile = async (audio: ImportedAudio) => {
 };
 
 export const getAllAudiosDB = async (): Promise<ImportedAudio[]> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_AUDIOS, 'readonly');
-    const store = tx.objectStore(STORE_AUDIOS);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  let { data: imported_audios, error } = await supabase
+    .from('imported_audios')
+    .select('*');
+
+  console.log("Imported audios fetched from Supabase:", imported_audios, error);
+
+  // make imported audios typed as ImportedAudio[]
+
+  if (error) {
+    console.error("Error fetching imported audios from Supabase:", error);
+  }
+
+  return imported_audios as ImportedAudio[];
+
+  // const db = await initDB();
+  // return new Promise((resolve, reject) => {
+  //   const tx = db.transaction(STORE_AUDIOS, 'readonly');
+  //   const store = tx.objectStore(STORE_AUDIOS);
+  //   const request = store.getAll();
+  //   request.onsuccess = () => resolve(request.result);
+  //   request.onerror = () => reject(request.error);
+  // });
 };
 
 export const saveStoriesDB = async (stories: StorySegment[]) => {
@@ -97,7 +112,7 @@ export const saveStoriesDB = async (stories: StorySegment[]) => {
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_STORIES, 'readwrite');
     const store = tx.objectStore(STORE_STORIES);
-    store.clear(); 
+    store.clear();
     stories.forEach(story => store.put(story));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -164,7 +179,7 @@ export const saveSubmissionDB = async (submission: QuizSubmission) => {
     const store = tx.objectStore(STORE_SUBMISSIONS);
     const request = store.put(submission);
     request.onsuccess = () => resolve();
-    request.onerror = () => reject(tx.error); 
+    request.onerror = () => reject(tx.error);
   });
 };
 
@@ -184,7 +199,7 @@ export const saveCordelSegmentsDB = async (cordelSegments: CordelSegment[]) => {
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_CORDEL, 'readwrite');
     const store = tx.objectStore(STORE_CORDEL);
-    store.clear(); 
+    store.clear();
     cordelSegments.forEach(segment => store.put(segment));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
