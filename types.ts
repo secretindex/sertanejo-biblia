@@ -9,56 +9,58 @@ export interface BibleBook {
 
 export interface StorySegment {
   id: string;
-  bookName: string;
+  book_name: string;
   chapter: number;
   title: string;
   reference: string;
-  startTime: number;
-  endTime: number;
-  fileName?: string;
-  audioBlob?: Blob; // The actual sliced audio data
+  start_time: number;
+  end_time: number;
+  file_name?: string;
+  audio_blob?: Blob; // The actual sliced audio data
 }
 
 export interface CordelSegment {
   id: string;
-  bookName: string;
+  book_name: string;
   chapter: number;
   title: string;
-  segmentType: 'music' | 'cordel'; // 'music' or 'cordel'
+  segment_type: 'music' | 'cordel'; // 'music' or 'cordel'
   reference: string;
-  startTime: number;
-  endTime: number;
-  fileName?: string;
-  audioBlob?: Blob; // The actual sliced audio data
+  start_time: number;
+  end_time: number;
+  file_name?: string;
+  audio_blob?: Blob; // The actual sliced audio data
 }
 
 export interface ChapterContent {
   book: string;
   chapter: number;
   verses: { number: number; text: string }[];
-  audioFile?: File | Blob;
-  startTime?: number;
-  endTime?: number;
-  fileName?: string;
-  storyTitle?: string;
+  audio_file?: File | Blob;
+  start_time?: number;
+  end_time?: number;
+  file_name?: string;
+  story_title?: string;
   reference?: string;
 }
 
 export interface ImportedAudio {
-  id: string;
-  bookName: string;
+  id?: string;
+  book_name: string;
   chapter: number;
-  fileName: string;
+  chapter_id?: string;
+  created_at?: string;
+  file_name: string;
   file?: File;
-  storiesIdentified?: boolean;
-  cordelIdentified?: boolean;
+  stories_identified?: boolean;
+  cordel_identified?: boolean;
   category?: 'library' | 'quiz'; // Novo campo para separar áudios da biblioteca e de quiz
 }
 
 export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
-  isAudio?: boolean;
+  is_audio?: boolean;
 }
 
 export enum AudioState {
@@ -76,15 +78,15 @@ export interface QuizQuestion {
 export interface Quiz {
   id: string;
   title: string;
-  bookName: string;
+  book_name: string;
   chapter: number;
-  audioFileName: string;
+  audio_file_name: string;
   questions: QuizQuestion[];
 }
 
 export interface QuizAnswer {
-  questionId: string;
-  answerText: string;
+  question_id: string;
+  answer_text: string;
 }
 
 export type AgeGroup = '5-11' | '12-17' | '18-30' | '31-59' | '60+';
@@ -93,7 +95,7 @@ export interface QuizSubmission {
   id: string;
   quizId: string;
   userName: string;
-  submissionDate: string; 
+  submissionDate: string;
   city: string;
   state: string;
   ageGroup: AgeGroup;

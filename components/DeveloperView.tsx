@@ -11,7 +11,7 @@ interface DeveloperViewProps {
   onBack: () => void;
   importedAudios: ImportedAudio[];
   onUpdateAudios: (audios: ImportedAudio[]) => void;
-  onDeleteAudio: (fileName: string) => void;
+  onDeleteAudio: (file_name: string) => void;
   onAnalyze: (audio: ImportedAudio) => void; // Para histórias
   onAnalyzeCordel: (audio: ImportedAudio) => void; // Para cordéis/músicas
   processingFiles: Set<string>;
@@ -29,7 +29,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
   const [searchTerm, setSearchTerm] = useState('');
 
   // States for Quiz creation
-  const [quizBookName, setQuizBookName] = useState('');
+  const [quizbook_name, setQuizbook_name] = useState('');
   const [quizChapter, setQuizChapter] = useState(0);
   const [quizTitle, setQuizTitle] = useState('');
   const [selectedQuizAudio, setSelectedQuizAudio] = useState<ImportedAudio | null>(null); // Change from File to ImportedAudio for selection
@@ -51,10 +51,10 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (newAudios.some(a => a.fileName === file.name)) continue;
+      if (newAudios.some(a => a.file_name === file.name)) continue;
 
       const match = file.name.match(/([a-zA-Z\sÀ-ÿ\d]+?)\s?(\d+)/);
-      let bookName = 'Desconhecido';
+      let book_name = 'Desconhecido';
       let chapter = 0;
 
       if (match) {
@@ -63,18 +63,20 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
         const matchedBook = BIBLE_BOOKS.find(b =>
           b.name.toLowerCase().replace(/\s/g, '').includes(bookRaw.toLowerCase().replace(/\s/g, ''))
         );
-        if (matchedBook) bookName = matchedBook.name;
+        if (matchedBook) book_name = matchedBook.name;
       }
 
       const audioObj: ImportedAudio = {
-        bookName,
+        book_name,
         chapter,
-        fileName: file.name,
+        file_name: file.name,
         file: file,
-        storiesIdentified: false,
-        cordelIdentified: false,
+        stories_identified: false,
+        cordel_identified: false,
         category: 'library'
       };
+
+      console.log(`Importando áudio: ${file.name} como ${book_name} capítulo ${chapter}`);
 
       newAudios.push(audioObj);
       await saveAudioFile(audioObj);
@@ -96,15 +98,15 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (newAudios.some(a => a.fileName === file.name)) continue;
+      if (newAudios.some(a => a.file_name === file.name)) continue;
 
       const audioObj: ImportedAudio = {
-        bookName: 'Quiz', // Default or parse
+        book_name: 'Quiz', // Default or parse
         chapter: 0,
-        fileName: file.name,
+        file_name: file.name,
         file: file,
-        storiesIdentified: false,
-        cordelIdentified: false,
+        stories_identified: false,
+        cordel_identified: false,
         category: 'quiz' // Marked as quiz
       };
 
@@ -147,7 +149,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
   };
 
   const handleGenerateQuestions = async () => {
-    if (!selectedQuizAudio || !selectedQuizAudio.file || !quizBookName || !quizChapter) {
+    if (!selectedQuizAudio || !selectedQuizAudio.file || !quizbook_name || !quizChapter) {
       alert("Por favor, selecione um áudio da lista, e preencha o livro e capítulo.");
       return;
     }
@@ -156,7 +158,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
     setGeneratedQuizQuestions([]);
     try {
       const base64Audio = await blobToBase64(selectedQuizAudio.file);
-      const aiQuestionsRaw = await generateQuizQuestions(base64Audio, quizBookName, quizChapter);
+      const aiQuestionsRaw = await generateQuizQuestions(base64Audio, quizbook_name, quizChapter);
 
       const aiQuestions: QuizQuestion[] = (aiQuestionsRaw || []).map((q, idx) => ({
         id: `ai-q-${Date.now()}-${idx}`,
@@ -183,7 +185,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
   };
 
   const handleSaveQuiz = async () => {
-    if (!quizTitle.trim() || !quizBookName || !quizChapter || !selectedQuizAudio || generatedQuizQuestions.length === 0) {
+    if (!quizTitle.trim() || !quizbook_name || !quizChapter || !selectedQuizAudio || generatedQuizQuestions.length === 0) {
       alert("Por favor, preencha todos os campos e gere as perguntas.");
       return;
     }
@@ -193,9 +195,9 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
       const newQuiz: Quiz = {
         id: `quiz-${Date.now()}`,
         title: quizTitle.trim(),
-        bookName: quizBookName,
+        book_name: quizbook_name,
         chapter: quizChapter,
-        audioFileName: selectedQuizAudio.fileName,
+        audio_file_name: selectedQuizAudio.file_name,
         questions: generatedQuizQuestions,
       };
 
@@ -206,7 +208,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
 
       // Clear form
       setQuizTitle('');
-      setQuizBookName('');
+      setQuizbook_name('');
       setQuizChapter(0);
       setSelectedQuizAudio(null);
       setGeneratedQuizQuestions([]);
@@ -224,8 +226,8 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
 
   const filteredLibraryAudios = useMemo(() => {
     return libraryAudios
-      .filter(a => a.fileName.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => a.bookName.localeCompare(b.bookName) || a.chapter - b.chapter);
+      .filter(a => a.file_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => a.book_name.localeCompare(b.book_name) || a.chapter - b.chapter);
   }, [libraryAudios, searchTerm]);
 
   return (
@@ -333,18 +335,18 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
               </div>
             ) : (
               filteredLibraryAudios.map(audio => (
-                <div key={audio.fileName} className="flex flex-col p-5 bg-white rounded-2xl group border border-[var(--border-light)] hover:border-[var(--secondary-bg)] hover:shadow-md transition-all">
+                <div key={audio.file_name} className="flex flex-col p-5 bg-white rounded-2xl group border border-[var(--border-light)] hover:border-[var(--secondary-bg)] hover:shadow-md transition-all">
                   {/* TOPO: Informações do Arquivo */}
                   <div className="flex justify-between items-start w-full mb-4">
                     <div className="flex flex-col min-w-0 pr-2">
-                      <span className="font-bold text-[var(--text-dark)] truncate text-base">{audio.fileName}</span>
+                      <span className="font-bold text-[var(--text-dark)] truncate text-base">{audio.file_name}</span>
                       <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-widest font-black mt-1 flex items-center">
-                        <span className="bg-[var(--primary-bg)] px-2 py-0.5 rounded-md border border-[var(--border-light)] mr-2">{audio.bookName}</span>
+                        <span className="bg-[var(--primary-bg)] px-2 py-0.5 rounded-md border border-[var(--border-light)] mr-2">{audio.book_name}</span>
                         Capítulo {audio.chapter}
                       </span>
                     </div>
                     <button
-                      onClick={() => onDeleteAudio(audio.fileName)}
+                      onClick={() => onDeleteAudio(audio.file_name, audio.file, audio.id)}
                       className="text-red-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors"
                       title="Excluir áudio"
                     >
@@ -356,7 +358,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
 
                   {/* FUNDO: Ações de Corte */}
                   <div className="flex flex-col sm:flex-row gap-3 w-full mt-auto pt-3 border-t border-dashed border-[var(--border-light)]">
-                    {processingFiles.has(audio.fileName) ? (
+                    {processingFiles.has(audio.file_name) ? (
                       <div className="w-full flex items-center justify-center space-x-2 text-[var(--secondary-bg)] font-black uppercase text-[10px] bg-[var(--primary-bg)] px-4 py-3 rounded-xl border border-[var(--border-light)]">
                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                         <span>Processando Áudio...</span>
@@ -364,7 +366,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
                     ) : (
                       <>
                         {/* BOTÃO: CORTAR HISTÓRIAS */}
-                        {audio.storiesIdentified ? (
+                        {audio.stories_identified ? (
                           <button
                             disabled
                             className="flex-1 bg-green-100 text-green-700 px-4 py-3 rounded-xl font-bold text-[11px] border border-green-200 flex items-center justify-center cursor-default"
@@ -388,7 +390,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
                         )}
 
                         {/* BOTÃO: CORTAR MÚSICAS/CORDEL */}
-                        {audio.cordelIdentified ? (
+                        {audio.cordel_identified ? (
                           <button
                             disabled
                             className="flex-1 bg-green-100 text-green-700 px-4 py-3 rounded-xl font-bold text-[11px] border border-green-200 flex items-center justify-center cursor-default"
@@ -463,8 +465,8 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
             <div>
               <label className="block text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">Livro Bíblico</label>
               <select
-                value={quizBookName}
-                onChange={(e) => setQuizBookName(e.target.value)}
+                value={quizbook_name}
+                onChange={(e) => setQuizbook_name(e.target.value)}
                 className="w-full bg-[var(--primary-bg)] border border-[var(--border-light)] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[var(--secondary-bg)]/20 text-[var(--text-dark)]"
               >
                 <option value="">Selecione um livro</option>
@@ -491,7 +493,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
             <div>
               <label className="block text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">Áudio Selecionado</label>
               <div className="w-full bg-[var(--primary-bg)] border border-[var(--border-light)] rounded-xl px-4 py-3 text-[var(--text-dark)] flex items-center justify-between">
-                <span className="truncate text-sm font-medium">{selectedQuizAudio ? selectedQuizAudio.fileName : 'Importe um áudio acima'}</span>
+                <span className="truncate text-sm font-medium">{selectedQuizAudio ? selectedQuizAudio.file_name : 'Importe um áudio acima'}</span>
                 {selectedQuizAudio && (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                 )}
@@ -504,7 +506,7 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
           <div>
             <button
               onClick={handleGenerateQuestions}
-              disabled={!selectedQuizAudio || !quizBookName || !quizChapter || isGeneratingQuestions}
+              disabled={!selectedQuizAudio || !quizbook_name || !quizChapter || isGeneratingQuestions}
               className="w-full bg-[var(--secondary-bg)] text-[var(--text-light)] p-4 rounded-2xl font-bold flex items-center justify-center space-x-2 hover:bg-[#3A2923] transition-all active:scale-[0.99] disabled:opacity-50 shadow-lg"
             >
               {isGeneratingQuestions ? (
@@ -554,9 +556,9 @@ const DeveloperView: React.FC<DeveloperViewProps> = ({ onBack, importedAudios, o
                     <div>
                       <h4 className="font-bold text-[var(--text-dark)]">{quiz.title}</h4>
                       <p className="text-xs text-[var(--text-muted)] mt-1">
-                        <span className="font-bold uppercase tracking-wider">{quiz.bookName} • Cap. {quiz.chapter}</span>
+                        <span className="font-bold uppercase tracking-wider">{quiz.book_name} • Cap. {quiz.chapter}</span>
                         <span className="mx-2">•</span>
-                        <span className="italic">Áudio: {quiz.audioFileName}</span>
+                        <span className="italic">Áudio: {quiz.audiofile_name}</span>
                       </p>
                     </div>
                     <button

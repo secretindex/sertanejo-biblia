@@ -1,22 +1,25 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+
 import HomeView from './components/HomeView';
 import BookListView from './components/BookListView';
 import ChapterListView from './components/ChapterListView';
 import StoriesListView from './components/StoriesListView';
 import StorySelectionView from './components/StorySelectionView';
-import PlayerView from './components/PlayerView'; 
+import PlayerView from './components/PlayerView';
 import DeveloperView from './components/DeveloperView';
 import QuizListView from './components/QuizListView';
 import QuizView from './components/QuizView';
-import QuizResultsView from './components/QuizResultsView'; 
+import QuizResultsView from './components/QuizResultsView';
 import MusicAndCordelListView from './components/MusicAndCordelListView';
 import FavoritesListView from './components/FavoritesListView';
+
 import { ChapterContent, AudioState, ImportedAudio, StorySegment, Quiz, BibleBook, QuizSubmission, CordelSegment, FavoriteItem, FavoriteType, AppThemeId, UserSettings, AppTheme } from './types';
 import { getAllAudiosDB, getAllStoriesDB, getAllQuizzesDB, getAllSubmissionsDB, saveAudioFile, saveStoriesDB, deleteAudioDB, getAllCordelSegmentsDB, saveCordelSegmentsDB, getAllFavoritesDB, saveFavoriteDB, deleteFavoriteDB, getSettingsDB, saveSettingsDB } from './services/db';
 import { extractStoriesFromAudio, extractMusicAndCordelFromAudio } from './services/geminiService';
 import { sliceAudio } from './services/audioUtils';
 import { BIBLE_BOOKS } from './constants';
+import supabase from './utils/supabase';
 
 type ViewState = 'home' | 'books' | 'bookChapters' | 'stories' | 'bookStories' | 'quizzes' | 'quizActive' | 'reader' | 'dev' | 'quizResults' | 'musicAndCordel' | 'favorites';
 
@@ -136,16 +139,16 @@ const App: React.FC = () => {
   const [stories, setStories] = useState<StorySegment[]>([]);
   const [cordelSegments, setCordelSegments] = useState<CordelSegment[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [quizSubmissions, setQuizSubmissions] = useState<QuizSubmission[]>([]); 
+  const [quizSubmissions, setQuizSubmissions] = useState<QuizSubmission[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<{ quiz: Quiz; file: File } | null>(null);
   const [globalAudioState, setGlobalAudioState] = useState<AudioState>(AudioState.IDLE);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  
+
   // User Settings State
   const [userSettings, setUserSettings] = useState<UserSettings>({ themeId: 'original' });
-  
+
   const [processingFiles, setProcessingFiles] = useState<Set<string>>(new Set());
-  
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
@@ -179,10 +182,10 @@ const App: React.FC = () => {
       setImportedAudios(savedAudios);
       setStories(savedStories);
       setQuizzes(savedQuizzes);
-      setQuizSubmissions(savedSubmissions); 
+      setQuizSubmissions(savedSubmissions);
       setCordelSegments(savedCordelSegments);
       setFavorites(savedFavorites);
-      
+
       if (savedSettings) {
         setUserSettings(savedSettings);
         applyTheme(savedSettings.themeId);
@@ -211,13 +214,13 @@ const App: React.FC = () => {
   };
 
   const handleSelectChapter = useCallback((
-    bookName: string, 
-    chapter: number, 
-    file?: File | Blob, 
-    startTime?: number, 
-    endTime?: number, 
-    fileName?: string, 
-    storyTitle?: string, 
+    bookName: string,
+    chapter: number,
+    file?: File | Blob,
+    startTime?: number,
+    endTime?: number,
+    fileName?: string,
+    storyTitle?: string,
     reference?: string
   ) => {
     if (!file) return;
@@ -232,15 +235,15 @@ const App: React.FC = () => {
     const content: ChapterContent = {
       book: bookName,
       chapter: chapter,
-      verses: [], 
-      audioFile: file,
-      startTime: startTime,
-      endTime: endTime,
-      fileName: fileName,
-      storyTitle: storyTitle,
+      verses: [],
+      audio_file: file,
+      start_time: startTime,
+      end_time: endTime,
+      file_name: fileName,
+      story_title: storyTitle,
       reference: reference
     };
-    
+
     setCurrentChapter(content);
     setView('reader');
 
@@ -250,11 +253,11 @@ const App: React.FC = () => {
       activeBlobUrlRef.current = url;
       audioRef.current.src = url;
       audioRef.current.load();
-      
+
       const onCanPlay = () => {
         if (audioRef.current) {
-           audioRef.current.currentTime = startTime || 0;
-           audioRef.current.play().catch(console.error);
+          audioRef.current.currentTime = startTime || 0;
+          audioRef.current.play().catch(console.error);
         }
       };
       audioRef.current.addEventListener('canplay', onCanPlay, { once: true });
@@ -273,7 +276,7 @@ const App: React.FC = () => {
       const bookStories = stories
         .filter(s => s.bookName === selectedBook.name)
         .sort((a, b) => a.chapter - b.chapter || a.startTime - b.startTime);
-      
+
       const currentIndex = bookStories.findIndex(s => s.fileName === currentChapter.fileName && s.title === currentChapter.storyTitle);
       const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
 
@@ -286,7 +289,7 @@ const App: React.FC = () => {
       const bookCordels = cordelSegments
         .filter(s => s.bookName === selectedBook.name)
         .sort((a, b) => a.chapter - b.chapter || a.startTime - b.startTime);
-      
+
       const currentIndex = bookCordels.findIndex(s => s.fileName === currentChapter.fileName && s.title === currentChapter.storyTitle);
       const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
 
@@ -322,13 +325,13 @@ const App: React.FC = () => {
   };
 
   const processAudioAnalysis = async (audio: ImportedAudio) => {
-    if (!audio.file || processingFiles.has(audio.fileName)) return;
+    if (!audio.file || processingFiles.has(audio.file_name)) return;
     setProcessingFiles(prev => {
       const next = new Set(prev);
-      next.add(audio.fileName);
+      next.add(audio.file_name);
       return next;
     });
-    
+
     try {
       const blobToBase64 = (blob: Blob): Promise<string> => {
         return new Promise((resolve) => {
@@ -337,60 +340,60 @@ const App: React.FC = () => {
           reader.readAsDataURL(blob);
         });
       };
-      
+
       const base64 = await blobToBase64(audio.file);
-      const extracted = await extractStoriesFromAudio(base64, audio.bookName, audio.chapter);
-      
+      const extracted = await extractStoriesFromAudio(base64, audio.book_name, audio.chapter);
+
       for (const s of extracted) {
         try {
-          const cutBlob = await sliceAudio(audio.file, s.startTime, s.endTime);
+          const cutBlob = await sliceAudio(audio.file, s.start_time, s.end_time);
           const newStory: StorySegment = {
             id: Math.random().toString(36).substr(2, 9),
-            bookName: audio.bookName,
+            book_name: audio.book_name,
             chapter: audio.chapter,
             title: s.title,
             reference: s.reference,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            fileName: audio.fileName,
-            audioBlob: cutBlob
+            start_time: s.start_time,
+            end_time: s.end_time,
+            file_name: audio.file_name,
+            audio_blob: cutBlob
           };
-          
+
           setStories(prev => {
             const updated = [...prev, newStory];
             saveStoriesDB(updated);
             return updated;
           });
-        } catch (e) { 
-          console.error("Erro no corte de história individual", e); 
+        } catch (e) {
+          console.error("Erro no corte de história individual", e);
         }
       }
 
       setImportedAudios(prev => {
-        const updated = prev.map(a => a.fileName === audio.fileName ? { ...a, storiesIdentified: true } : a);
+        const updated = prev.map(a => a.file_name === audio.file_name ? { ...a, stories_identified: true } : a);
         updated.forEach(a => saveAudioFile(a));
         return updated;
       });
 
     } catch (err) {
-      console.error(`Erro ao processar ${audio.fileName}`, err);
+      console.error(`Erro ao processar ${audio.file_name}`, err);
     } finally {
       setProcessingFiles(prev => {
         const next = new Set(prev);
-        next.delete(audio.fileName);
+        next.delete(audio.file_name);
         return next;
       });
     }
   };
 
   const processCordelAnalysis = async (audio: ImportedAudio) => {
-    if (!audio.file || processingFiles.has(audio.fileName)) return;
+    if (!audio.file || processingFiles.has(audio.file_name)) return;
     setProcessingFiles(prev => {
       const next = new Set(prev);
-      next.add(audio.fileName);
+      next.add(audio.file_name);
       return next;
     });
-    
+
     try {
       const blobToBase64 = (blob: Blob): Promise<string> => {
         return new Promise((resolve) => {
@@ -399,48 +402,48 @@ const App: React.FC = () => {
           reader.readAsDataURL(blob);
         });
       };
-      
+
       const base64 = await blobToBase64(audio.file);
-      const extracted = await extractMusicAndCordelFromAudio(base64, audio.bookName, audio.chapter);
-      
+      const extracted = await extractMusicAndCordelFromAudio(base64, audio.book_name, audio.chapter);
+
       for (const s of extracted) {
         try {
-          const cutBlob = await sliceAudio(audio.file, s.startTime, s.endTime);
+          const cutBlob = await sliceAudio(audio.file, s.start_time, s.end_time);
           const newCordel: CordelSegment = {
             id: Math.random().toString(36).substr(2, 9),
-            bookName: audio.bookName,
+            book_name: audio.book_name,
             chapter: audio.chapter,
             title: s.title,
             reference: s.reference,
-            segmentType: s.segmentType,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            fileName: audio.fileName,
-            audioBlob: cutBlob
+            segment_type: s.segment_type,
+            start_time: s.start_time,
+            end_time: s.end_time,
+            file_name: audio.file_name,
+            audio_blob: cutBlob
           };
-          
+
           setCordelSegments(prev => {
             const updated = [...prev, newCordel];
             saveCordelSegmentsDB(updated);
             return updated;
           });
-        } catch (e) { 
-          console.error("Erro no corte de cordel/música individual", e); 
+        } catch (e) {
+          console.error("Erro no corte de cordel/música individual", e);
         }
       }
 
       setImportedAudios(prev => {
-        const updated = prev.map(a => a.fileName === audio.fileName ? { ...a, cordelIdentified: true } : a);
+        const updated = prev.map(a => a.fileName === audio.file_name ? { ...a, cordelIdentified: true } : a);
         updated.forEach(a => saveAudioFile(a));
         return updated;
       });
 
     } catch (err) {
-      console.error(`Erro ao processar ${audio.fileName} para cordéis/músicas`, err);
+      console.error(`Erro ao processar ${audio.file_name} para cordéis/músicas`, err);
     } finally {
       setProcessingFiles(prev => {
         const next = new Set(prev);
-        next.delete(audio.fileName);
+        next.delete(audio.file_name);
         return next;
       });
     }
@@ -481,7 +484,7 @@ const App: React.FC = () => {
         const sourceAudio = story.audioBlob || importedAudios.find(a => a.fileName === story.fileName)?.file;
         handleSelectChapter(story.bookName, story.chapter, sourceAudio, story.audioBlob ? 0 : story.startTime, story.audioBlob ? undefined : story.endTime, story.fileName, story.title, story.reference);
       } else {
-         alert("História original não encontrada.");
+        alert("História original não encontrada.");
       }
     } else if (fav.type === 'music' || fav.type === 'cordel') {
       const segment = cordelSegments.find(s => s.id === fav.originalId);
@@ -513,7 +516,7 @@ const App: React.FC = () => {
       setView('quizzes');
     } else if (view === 'quizResults') {
       setView('home');
-    } else if (view === 'musicAndCordel') { 
+    } else if (view === 'musicAndCordel') {
       setView('home');
     } else if (view === 'favorites') {
       setView('home');
@@ -531,7 +534,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col relative overflow-x-hidden bg-[var(--primary-bg)] transition-colors duration-500">
-      <audio 
+      <audio
         ref={audioRef}
         onPlay={() => setGlobalAudioState(AudioState.PLAYING)}
         onPause={() => setGlobalAudioState(AudioState.PAUSED)}
@@ -540,27 +543,27 @@ const App: React.FC = () => {
           if (transitionTimeoutRef.current) window.clearTimeout(transitionTimeoutRef.current);
           transitionTimeoutRef.current = window.setTimeout(() => {
             navigateAudio('next');
-          }, 2500); 
+          }, 2500);
         }}
       />
 
       {view === 'home' && (
-        <HomeView 
-          onStart={() => setView('books')} 
+        <HomeView
+          onStart={() => setView('books')}
           onStories={() => setView('stories')}
           onQuizzes={() => setView('quizzes')}
           onMusicAndCordel={() => setView('musicAndCordel')}
           onDevAccess={() => setView('dev')}
-          onViewQuizResults={() => setView('quizResults')} 
+          onViewQuizResults={() => setView('quizResults')}
           onViewFavorites={() => setView('favorites')}
           userSettings={userSettings}
           onUpdateSettings={handleUpdateSettings}
         />
       )}
-      
+
       {view === 'books' && (
-        <BookListView 
-          onBack={goBack} 
+        <BookListView
+          onBack={goBack}
           onSelectBook={(book) => { setSelectedBook(book); setView('bookChapters'); }}
           importedAudios={importedAudios}
           onGoHome={goHome}
@@ -568,7 +571,7 @@ const App: React.FC = () => {
       )}
 
       {/* ... [Restante dos componentes mantidos iguais] ... */}
-      
+
       {view === 'bookChapters' && selectedBook && (
         <ChapterListView
           book={selectedBook}
@@ -582,10 +585,10 @@ const App: React.FC = () => {
       )}
 
       {view === 'stories' && (
-        <StoriesListView 
-          onBack={goBack} 
+        <StoriesListView
+          onBack={goBack}
           stories={stories}
-          onSelectBook={(bookName) => { 
+          onSelectBook={(bookName) => {
             const book = BIBLE_BOOKS.find(b => b.name === bookName);
             if (book) { setSelectedBook(book); setView('bookStories'); }
           }}
@@ -610,36 +613,36 @@ const App: React.FC = () => {
       )}
 
       {view === 'quizzes' && (
-        <QuizListView 
-          onBack={goBack} 
-          quizzes={quizzes} 
+        <QuizListView
+          onBack={goBack}
+          quizzes={quizzes}
           importedAudios={importedAudios}
-          onSelectQuiz={(quiz, file) => { setActiveQuiz({ quiz, file }); setView('quizActive'); }} 
+          onSelectQuiz={(quiz, file) => { setActiveQuiz({ quiz, file }); setView('quizActive'); }}
           onGoHome={goHome}
         />
       )}
 
       {view === 'quizActive' && activeQuiz && (
-        <QuizView 
-            quiz={activeQuiz.quiz} 
-            audioFile={activeQuiz.file} 
-            onBack={goBack} 
-            onGoHome={goHome} 
-            onSubmission={handleQuizSubmission} 
+        <QuizView
+          quiz={activeQuiz.quiz}
+          audioFile={activeQuiz.file}
+          onBack={goBack}
+          onGoHome={goHome}
+          onSubmission={handleQuizSubmission}
         />
       )}
 
-      {view === 'quizResults' && ( 
-        <QuizResultsView 
-          onBack={goBack} 
-          quizzes={quizzes} 
-          submissions={quizSubmissions} 
+      {view === 'quizResults' && (
+        <QuizResultsView
+          onBack={goBack}
+          quizzes={quizzes}
+          submissions={quizSubmissions}
           onGoHome={goHome}
         />
       )}
 
       {view === 'musicAndCordel' && (
-        <MusicAndCordelListView 
+        <MusicAndCordelListView
           onBack={goBack}
           cordelSegments={cordelSegments}
           importedAudios={importedAudios}
@@ -655,9 +658,9 @@ const App: React.FC = () => {
           isFavorited={isFavorited}
         />
       )}
-      
+
       {view === 'favorites' && (
-        <FavoritesListView 
+        <FavoritesListView
           onBack={goBack}
           favorites={favorites}
           importedAudios={importedAudios}
@@ -671,8 +674,8 @@ const App: React.FC = () => {
       )}
 
       {view === 'reader' && (
-        <PlayerView 
-          content={currentChapter} 
+        <PlayerView
+          content={currentChapter}
           isLoading={false}
           onBack={goBack}
           audioRef={audioRef}
@@ -683,20 +686,31 @@ const App: React.FC = () => {
       )}
 
       {view === 'dev' && (
-        <DeveloperView 
-          onBack={goBack} 
-          importedAudios={importedAudios} 
+        <DeveloperView
+          onBack={goBack}
+          importedAudios={importedAudios}
           onUpdateAudios={(audios) => setImportedAudios(audios)}
-          onDeleteAudio={async (f) => {
-            setImportedAudios(prev => prev.filter(a => a.fileName !== f));
+          onDeleteAudio={async (f: string, f_ext: string, id: string) => {
+            console.log(`Deletando áudio: ${f}`);
+
+            const { data, error } = await supabase.storage.from('Audios').remove([`public/${f}.${f_ext.split('.').pop()}`]);
+            const { data: data2, error: error2 } = await supabase.from("imported_audios").delete().eq("id", id);
+
+            if (error2) console.error("Erro ao deletar do Supabase DB:", error2);
+            else console.log("Entrada deletada do Supabase DB:", data2);
+
+            if (error) console.error("Erro ao deletar do Supabase:", error);
+            else console.log("Áudio deletado do Supabase:", data);
+
+            setImportedAudios(prev => prev.filter(a => a.file_name !== f));
             await deleteAudioDB(f);
             setStories(prev => {
-              const filtered = prev.filter(s => s.fileName !== f);
+              const filtered = prev.filter(s => s.file_name !== f);
               saveStoriesDB(filtered);
               return filtered;
             });
             setCordelSegments(prev => {
-              const filtered = prev.filter(s => s.fileName !== f);
+              const filtered = prev.filter(s => s.file_name !== f);
               saveCordelSegmentsDB(filtered);
               return filtered;
             });
@@ -714,7 +728,7 @@ const App: React.FC = () => {
 
       {/* Mini Players (Global) mantidos iguais */}
       {view === 'home' && currentChapter && globalAudioState !== AudioState.IDLE && (
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             if (audioRef.current) {
@@ -745,15 +759,15 @@ const App: React.FC = () => {
       {view !== 'home' && view !== 'reader' && view !== 'quizActive' && currentChapter && globalAudioState !== AudioState.IDLE && (
         <div className={`fixed bottom-0 left-0 right-0 z-50 w-full border-t p-4 shadow-2xl flex items-center justify-between transition-colors duration-300 ${globalAudioState === AudioState.PLAYING ? 'bg-[var(--secondary-bg)] border-[var(--secondary-bg)]' : 'bg-[var(--tertiary-bg)] border-[var(--border-light)]'}`}>
           {/* ... [Código do player de barra inferior mantido] ... */}
-          <div 
-            className="flex items-center flex-1 cursor-pointer min-w-0" 
+          <div
+            className="flex items-center flex-1 cursor-pointer min-w-0"
             onClick={() => setView('reader')}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 transition-colors ${globalAudioState === AudioState.PLAYING ? 'bg-[var(--tertiary-bg)]' : 'bg-[var(--secondary-bg)]'}`}>
               {globalAudioState === AudioState.PLAYING ? (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--secondary-bg)]" viewBox="0 0 20 20" fill="currentColor">
-                   <path d="M13.5 10a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1.5-4.66a.75.75 0 001.5 0V6.66a.75.75 0 00-1.5 0v6.68z" clipRule="evenodd" />
+                  <path d="M13.5 10a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1.5-4.66a.75.75 0 001.5 0V6.66a.75.75 0 00-1.5 0v6.68z" clipRule="evenodd" />
                 </svg>
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--text-light)] translate-x-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -772,12 +786,12 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-             <button onClick={() => skipAudio(-15)} className={`p-2 rounded-full transition-colors active:scale-90 ${globalAudioState === AudioState.PLAYING ? 'text-[var(--text-light)] hover:bg-white/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-light)]'}`} aria-label="Voltar 15 segundos">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12.066 11.2a1 1 0 000 1.6l5.334 3.2A1 1 0 0019 15.2V8.8a1 1 0 00-1.6-.8l-5.334 3.2zM2.066 11.2a1 1 0 000 1.6l5.334 3.2A1 1 0 009 15.2V8.8a1 1 0 00-1.6-.8l-5.334 3.2z" />
-                </svg>
-              </button>
-            <button 
+            <button onClick={() => skipAudio(-15)} className={`p-2 rounded-full transition-colors active:scale-90 ${globalAudioState === AudioState.PLAYING ? 'text-[var(--text-light)] hover:bg-white/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-light)]'}`} aria-label="Voltar 15 segundos">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12.066 11.2a1 1 0 000 1.6l5.334 3.2A1 1 0 0019 15.2V8.8a1 1 0 00-1.6-.8l-5.334 3.2zM2.066 11.2a1 1 0 000 1.6l5.334 3.2A1 1 0 009 15.2V8.8a1 1 0 00-1.6-.8l-5.334 3.2z" />
+              </svg>
+            </button>
+            <button
               onClick={() => {
                 if (audioRef.current) {
                   if (audioRef.current.paused) audioRef.current.play().catch(console.error);
